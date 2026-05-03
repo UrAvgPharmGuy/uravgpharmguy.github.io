@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Easy Lawn</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#3d8a4a" />
+<meta name="mobile-web-app-capable" content="yes" />
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Easy Lawn" />
+<link rel="apple-touch-icon" href="./icons/icon-152.png" />
+<link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
+<link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" sizes="512x512" href="./icons/icon-512.png" />
+
+<!-- iOS splash screens (generated placeholder color) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<template id="__bundler_thumbnail" data-bg-color="#1a1a18">
+  <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="400" fill="#1a1a18"/>
+    <rect x="120" y="40" width="160" height="320" rx="22" fill="#f7f5f0"/>
+    <rect x="120" y="40" width="160" height="60" rx="22" fill="#3d8a4a"/>
+    <rect x="120" y="80" width="160" height="20" fill="#3d8a4a"/>
+    <rect x="132" y="112" width="136" height="36" rx="10" fill="#e0f0e4"/>
+    <rect x="132" y="155" width="136" height="36" rx="10" fill="#fff"/>
+    <rect x="132" y="198" width="136" height="36" rx="10" fill="#fff"/>
+    <rect x="132" y="241" width="136" height="36" rx="10" fill="#fff"/>
+    <rect x="132" y="292" width="136" height="44" rx="10" fill="#fdf3dc"/>
+    <circle cx="152" cy="315" r="7" fill="#c49a28"/>
+    <rect x="149" y="302" width="5" height="14" rx="2.5" fill="#c49a28"/>
+  </svg>
+</template>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../ios-frame.jsx"></script>
+<script type="text/babel" src="../tweaks-panel.jsx"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: oklch(20% 0.02 60); font-family: 'Sora', sans-serif; display: flex; align-items: center; justify-content: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.fade-up { animation: fadeUp 0.3s ease both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW failed:', err));
+    });
+  }
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── TOKENS ──────────────────────────────────────────────────────────────────
+const T = {
+  bg:        'oklch(97% 0.012 80)',
+  bgCard:    'oklch(99% 0.006 80)',
+  bgDeep:    'oklch(93% 0.018 78)',
+  soil:      'oklch(28% 0.04 55)',
+  soilMid:   'oklch(45% 0.05 55)',
+  soilLight: 'oklch(78% 0.04 60)',
+  green:     'oklch(46% 0.14 142)',
+  greenLt:   'oklch(62% 0.12 142)',
+  greenPale: 'oklch(91% 0.06 142)',
+  gold:      'oklch(66% 0.13 85)',
+  goldPale:  'oklch(93% 0.05 85)',
+  alert:     'oklch(60% 0.14 45)',
+  alertPale: 'oklch(93% 0.05 45)',
+  text:      'oklch(22% 0.03 60)',
+  textMid:   'oklch(50% 0.03 60)',
+  textSoft:  'oklch(68% 0.025 65)',
+  border:    'oklch(89% 0.018 75)',
+  radius:    '18px',
+  radiusSm:  '11px',
+  shadow:    '0 2px 14px oklch(28% 0.04 55 / 0.09)',
+  shadowLg:  '0 8px 36px oklch(28% 0.04 55 / 0.16)',
+};
+
+// ─── UNIVERSITY EXTENSION DATA ────────────────────────────────────────────────
+// Sources: Penn State Extension, UI Extension (Univ. of Illinois), NC State Extension,
+// Ohio State Extension, Colorado State Extension, UC ANR (Univ. of California)
+// All timing windows are based on published soil temperature and phenological indicators.
+
+const EXTENSION_SOURCES = {
+  northeast: { name: 'Penn State Extension', url: 'extension.psu.edu', abbr: 'PSU' },
+  midwest:   { name: 'University of Minnesota Extension', url: 'extension.umn.edu', abbr: 'UMN Ext.' },
+  transition:{ name: 'NC State Extension', url: 'content.ces.ncsu.edu', abbr: 'NCSU' },
+  pacific:   { name: 'UC Agriculture & Natural Resources', url: 'ucanr.edu', abbr: 'UC ANR' },
+  mountain:  { name: 'Colorado State Extension', url: 'extension.colostate.edu', abbr: 'CSU Ext.' },
+  warm:      { name: 'University of Georgia Extension', url: 'extension.uga.edu', abbr: 'UGA Ext.' },
+};
+
+// Grass seed data keyed by [zone][condition] → array of variety objects
+// Data sourced from extension turfgrass guides
+const GRASS_VARIETIES = {
+  northeast: {
+    full_sun: [
+      { name:'Kentucky Bluegrass', species:'Poa pratensis', cultivars:['Midnight', 'Moonlight', 'Everglade'], pros:['Dense, lush appearance','Self-repairs via rhizomes','Excellent cold hardiness'], cons:['Slow establishment (21–28 days)','Needs supplemental irrigation in dry summers','Poor shade tolerance'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Rebel Supreme', 'Houndog 5'], pros:['Deep roots, drought tolerant','Tolerates heat better than bluegrass','Rapid germination (7–14 days)'], cons:['Clump-forming (no self-repair)','Coarser texture','Less dense appearance'] },
+      { name:'Perennial Ryegrass', species:'Lolium perenne', cultivars:['Manhattan 5', 'Zoom', 'Catalina 2'], pros:['Fastest germination (5–7 days)','Fine texture, attractive','Excellent wear tolerance'], cons:['Poor heat and drought tolerance','No cold dormancy recovery','Short-lived standalone (use in mixes)'] },
+    ],
+    partial_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Faith', 'Falcon IV'], pros:['Best all-around for partial sun','Tolerates 4+ hours well','Deep roots'], cons:['Clumping habit','Requires overseeding to fill thin spots'] },
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Jamestown II', 'Creeping Red', 'Chewings'], pros:['Handles light shade well','Low maintenance','Tolerates poor soil'], cons:['Weak in high traffic','Thin appearance in full sun'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Hard Fescue', 'Sheep Fescue'], pros:['Best cool-season option for shade','Survives on minimal fertility','Low mowing requirement'], cons:['Cannot handle heavy foot traffic','Thin in full sun','Can look wispy'] },
+      { name:'Shade Tall Fescue Mix', species:'Festuca arundinacea', cultivars:['Rebel Shade', 'Shadow II'], pros:['More durable than fine fescues','Reasonable shade tolerance'], cons:['Needs 3+ hours of light minimum','Coarser texture'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Hard Fescue'], pros:['Most shade-tolerant cool-season option','Very low fertility needs'], cons:['Will thin over time even here','Traffic kills it quickly','Ground covers may be better solution'] },
+    ],
+    high_traffic: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Fineline', 'Wolfpack II'], pros:['Best wear tolerance of cool-season grasses','Deep roots resist compaction','Quick to establish'], cons:['No lateral spread — overseed thin areas','Clump-forming'] },
+      { name:'Perennial Ryegrass', species:'Lolium perenne', cultivars:['Manhattan 5', 'Zoom', 'Fiesta 4'], pros:['Fastest recovery after wear','Excellent texture','Quick germination'], cons:['Needs frequent overseeding','Poor summer drought tolerance'] },
+    ],
+    slopes: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Duster', 'Rebel Exeda'], pros:['Deep fibrous roots stabilize soil','Drought tolerant once established','Low maintenance on slopes'], cons:['Clump habit can create thin spots','May need irrigation to establish'] },
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue'], pros:['Excellent for low-maintenance slopes','Tolerates poor, dry soils','Erosion control'], cons:['Cannot handle traffic','Very slow to thicken'] },
+    ],
+  },
+  midwest: {
+    full_sun: [
+      { name:'Kentucky Bluegrass', species:'Poa pratensis', cultivars:['Midnight', 'Prosperity', 'Bewitched'], pros:['Premium look for Minnesota lawns','Excellent cold hardiness for harsh winters','Dense sod-forming habit — self-repairs via rhizomes'], cons:['Needs supplemental watering in July/Aug heat','Slow germination (21–28 days)','Susceptible to summer patch disease in hot spells'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Rebel Supreme', 'Duster'], pros:['Tolerates Minnesota clay soils well','Less irrigation needed than Kentucky Bluegrass','Fast establishment (10–14 days)'], cons:['Coarser texture than bluegrass','Does not self-repair — overseed thin spots annually','Can look out of place in a bluegrass lawn'] },
+      { name:'KBG / Fine Fescue Blend', species:'Poa pratensis / Festuca spp.', cultivars:['UMN-recommended: ~60% KBG / 40% Fine Fescue'], pros:['UMN recommends this blend for most Minnesota lawns','Fine fescue handles shade and drought; KBG fills open areas','Better disease resistance than pure stands'], cons:['Fine fescue component thins in heavy sun over time','Requires proper seeding ratio for balance'] },
+    ],
+    partial_sun: [
+      { name:'Fine Fescue / KBG Blend', species:'Festuca spp. / Poa pratensis', cultivars:['Creeping Red Fescue', 'Hard Fescue', 'Midnight KBG'], pros:['UMN-recommended mix for partial sun in Minnesota','Fine fescue handles reduced light; KBG covers sunny spots','Low maintenance once established'], cons:['KBG component thins in shade','Fine fescue thins in full sun'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Rebel Supreme', 'Faith', 'Fineline'], pros:['Handles 4+ hours sun reliably','Deep roots for Minnesota clay','Rapid germination'], cons:['Clump forming — no lateral spread','Annual overseeding needed for thin spots'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Chewings', 'Hard Fescue'], pros:['UMN recommends fine fescues as the best shade option for Minnesota','Tolerates poor, acidic Minnesota soils','Very low-input once established'], cons:['No traffic tolerance','Can look thin and wispy','May need ground cover in deeper shade'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue'], pros:['Only realistic cool-season option for Minnesota dense shade','Very low inputs needed','Cold hardy'], cons:['Will slowly decline even here','Traffic eliminates it quickly','UMN suggests native ground covers as a better long-term solution'] },
+    ],
+    high_traffic: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Wolfpack II', 'Falcon IV'], pros:['Best durability on Minnesota clay soils','Deep roots resist compaction','Establishes in 10–14 days'], cons:['Needs annual overseeding — no lateral spread','Clumping habit'] },
+      { name:'Perennial Ryegrass', species:'Lolium perenne', cultivars:['Manhattan 5', 'Catalina 2', 'Fiesta 4'], pros:['Fastest recovery time after traffic','Excellent traffic resistance','Germinates in 5–7 days'], cons:['Short-lived in harsh Minnesota winters','Needs overseeding annually'] },
+    ],
+    slopes: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue', 'Creeping Red'], pros:['UMN recommends fine fescues for low-maintenance Minnesota slopes','Excellent erosion control once established','Tolerates poor, dry soils','Cold hardy'], cons:['Very slow to thicken — use erosion control blanket','Not for traffic areas'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Duster', 'Rebel Exeda'], pros:['Deep roots stabilize Minnesota slopes','Faster establishment than fine fescue'], cons:['Needs irrigation to establish','Clumping habit can leave thin spots'] },
+    ],
+  },
+  transition: {
+    full_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Rebel Exeda', 'Wolfpack II'], pros:['Best cool-season choice for transition zone','Tolerates summer heat better than KBG','Deep roots for dry spells'], cons:['Clump-forming (overseed annually)','Can go semi-dormant in extreme heat','Coarser texture'] },
+      { name:'Kentucky Bluegrass', species:'Poa pratensis', cultivars:['Midnight', 'Moonlight', 'Mallard'], pros:['Beautiful appearance when managed well','Self-repairing via rhizomes'], cons:['Difficult to maintain in transition zone summers','High water demand','Disease pressure in humid transition areas'] },
+    ],
+    partial_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Rebel Supreme', 'Faith', 'Fineline'], pros:['Highly adaptable','Performs well in 4+ hours sun','Deep roots for transition zone heat'], cons:['Clumping','Annual overseeding required'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Jamestown II', 'Hard Fescue'], pros:['Most shade tolerant for transition zone','Low fertility needs'], cons:['Struggles in humid summers','Very low traffic tolerance'] },
+      { name:'Shade Tall Fescue', species:'Festuca arundinacea', cultivars:['Shadow II', 'Rebel Shade'], pros:['More durable than fine fescue','Handles transition zone humidity better'], cons:['Needs 3+ hours sun minimum'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Creeping Red'], pros:['Only viable grass option','Very low inputs'], cons:['Struggles in transition zone humidity','Will decline over time','Ground covers strongly recommended'] },
+    ],
+    high_traffic: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Duster', 'Falcon IV'], pros:['Best traffic tolerance for transition zone','Heat tolerant relative to other cool-season grasses','Deep roots'], cons:['Annual overseeding needed','May go dormant in hot summers'] },
+    ],
+    slopes: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Duster'], pros:['Excellent erosion control in transition zone','Drought tolerant on slopes'], cons:['Establish with straw blanket on steep slopes','Clumping habit'] },
+    ],
+  },
+  pacific: {
+    full_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Houndog 5', 'Rebel Supreme'], pros:['Best performer in Pacific summer heat','Deep roots for dry season','Low mowing frequency'], cons:['Clumping habit','Coarser texture','Needs water during dry summers'] },
+      { name:'Perennial Ryegrass', species:'Lolium perenne', cultivars:['Manhattan 5', 'Zoom', 'Catalina 2'], pros:['Fine texture','Quick establishment after fall rains','Excellent appearance'], cons:['Less drought tolerant than fescue','Needs summer irrigation','Short-lived in inland valleys'] },
+    ],
+    partial_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Rebel Supreme', 'Faith'], pros:['Handles Pacific partial shade well','Adaptable to various Pacific microclimates'], cons:['Clumping','Less dense in shade'] },
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Hard Fescue'], pros:['Good for coastal partial shade','Low water needs'], cons:['Thin in full Pacific sun'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Chewings', 'Hard Fescue'], pros:['Best shade option for Pacific Coast','Thrives in coastal marine layer conditions','Very low inputs'], cons:['Poor traffic tolerance','Not for Central Valley heat'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Creeping Red'], pros:['Viable in mild Pacific coastal shade','Low fertility needs'], cons:['Struggles inland','Ground covers recommended in heavy shade'] },
+    ],
+    high_traffic: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Wolfpack II'], pros:['Best wear tolerance for Pacific lawns','Establishes with fall rains'], cons:['Needs summer irrigation','Annual overseeding'] },
+      { name:'Perennial Ryegrass', species:'Lolium perenne', cultivars:['Manhattan 5', 'Fiesta 4'], pros:['Quick recovery','Fine texture look','Establishes fast in fall'], cons:['Needs irrigation to survive Pacific summers'] },
+    ],
+    slopes: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Duster', 'Rebel Exeda'], pros:['Deep roots for Pacific slope erosion','Drought tolerant after establishment'], cons:['Establish with straw blanket on steep slopes'] },
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue'], pros:['Excellent low-maintenance slope cover','Tolerates Pacific dry season once established'], cons:['Very slow to thicken','Not for traffic'] },
+    ],
+  },
+  mountain: {
+    full_sun: [
+      { name:'Kentucky Bluegrass', species:'Poa pratensis', cultivars:['Midnight', 'Moonlight', 'Everglade'], pros:['Classic mountain lawn appearance','Excellent cold hardiness','Self-repairs in short growing season'], cons:['Requires supplemental irrigation','Short establishment window','Slow germination'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Houndog 5', 'Falcon IV'], pros:['Deeper roots for mountain clay/rocky soils','Less irrigation than KBG','Faster establishment in short season'], cons:['Clumping','Shorter viability window for seeding'] },
+    ],
+    partial_sun: [
+      { name:'KBG/Fine Fescue Mix', species:'Poa pratensis / Festuca spp.', cultivars:['Mountain Mix', 'Altitude Blend'], pros:['Adapts to variable mountain sun','Fine fescue handles afternoon shade'], cons:['Needs irrigation to establish','Short planting window'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Creeping Red', 'Sheep Fescue'], pros:['Best shade option at altitude','Low inputs once established','Cold hardy'], cons:['Very low traffic tolerance','Thin in mountain summers'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue'], pros:['Only viable option at altitude in shade','Survives harsh mountain conditions'], cons:['Minimal traffic','Will need periodic overseeding','Native ground cover may be better'] },
+    ],
+    high_traffic: [
+      { name:'Kentucky Bluegrass', species:'Poa pratensis', cultivars:['Midnight', 'Prosperity'], pros:['Self-repairs after traffic — critical in short season','Cold hardy','Good traffic recovery'], cons:['Needs irrigation','Slow initial establishment'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Wolfpack II'], pros:['Durable in mountain soils','Quick establishment in limited window'], cons:['No self-repair','Annual overseeding needed'] },
+    ],
+    slopes: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue', 'Sheep Fescue', 'Creeping Red'], pros:['Excellent for mountain slopes and meadow edges','Very low inputs after establishment','Cold hardy'], cons:['Slow establishment — use erosion control blanket','No traffic tolerance'] },
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Duster', 'Rebel Exeda'], pros:['Deep roots for steep slopes','Faster establishment than fine fescue'], cons:['Needs irrigation to establish in mountain climate'] },
+    ],
+  },
+  warm: {
+    full_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Rebel Exeda', 'Houndog 5'], pros:['Best cool-season option for warm climates','Tolerates heat better than other cool-season grasses','Deep roots for dry spells'], cons:['Can go dormant or die in extreme summer heat','Annual overseeding typically required','High water demand'] },
+    ],
+    partial_sun: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Rebel Supreme', 'Shadow II'], pros:['Most adaptable cool-season option for warm partial sun','Handles heat better with afternoon shade'], cons:['Needs water','Clumping'] },
+    ],
+    partial_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Creeping Red', 'Chewings'], pros:['Best cool-season shade option in warm climates','Lower heat stress in shade'], cons:['Humid warm climates promote disease','Very limited traffic tolerance'] },
+    ],
+    dense_shade: [
+      { name:'Fine Fescue Blend', species:'Festuca spp.', cultivars:['Hard Fescue'], pros:['Only viable cool-season option'], cons:['Will struggle significantly in warm humid climates','Ground cover or warm-season grass strongly recommended'] },
+    ],
+    high_traffic: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Titan RX', 'Wolfpack II'], pros:['Best traffic durability for warm cool-season use','Deep roots'], cons:['Will die in extreme summer — needs overseeding','High water demand'] },
+    ],
+    slopes: [
+      { name:'Tall Fescue', species:'Festuca arundinacea', cultivars:['Duster', 'Rebel Exeda'], pros:['Deep roots for erosion control','Drought tolerant after establishment'], cons:['May die in extreme summer heat','Use erosion blanket to establish'] },
+    ],
+  },
+};
+
+const CONDITION_OPTIONS = [
+  { id:'full_sun',      label:'Full Sun',       sublabel:'6+ hrs direct', icon:'☀️' },
+  { id:'partial_sun',   label:'Partial Sun',    sublabel:'4–6 hrs', icon:'🌤️' },
+  { id:'partial_shade', label:'Partial Shade',  sublabel:'2–4 hrs', icon:'⛅' },
+  { id:'dense_shade',   label:'Dense Shade',    sublabel:'Under 2 hrs', icon:'🌳' },
+  { id:'high_traffic',  label:'High Traffic',   sublabel:'Play area / pets', icon:'⚽' },
+  { id:'slopes',        label:'Slopes',         sublabel:'Erosion control', icon:'⛰️' },
+];
+
+// ─── TASK CALENDAR (university extension data) ────────────────────────────────
+function getLawnTasks(zone, today = new Date()) {
+  const yr = today.getFullYear();
+
+  // [month (0-indexed), day]
+  const calendars = {
+    // Penn State Extension: "Seed cool-season grasses Aug 15–Sep 15, soil temp 50–65°F"
+    // PSU recommends pre-emergent when forsythia drops petals (~soil 55°F, early Apr)
+    northeast: [
+      { id:'overseed',    name:'Overseed',          icon:'🌱', season:'fall',   priority:'high',
+        timing:[{start:[7,15],end:[9,15],label:'Aug 15 – Sep 15'}],
+        desc:'PSU Extension recommends overseeding when soil temps drop to 50–65°F, typically mid-August through mid-September in the Northeast. Germination is fastest with consistent soil temps in this range.',
+        source:'Penn State Extension — "Lawn Establishment and Renovation"' },
+      { id:'seed_new',    name:'Plant New Seed',     icon:'🪴', season:'fall',   priority:'high',
+        timing:[{start:[7,10],end:[9,20],label:'Aug 10 – Sep 20'}],
+        desc:'Penn State Extension identifies late summer as the optimal new lawn establishment window. Cooler nights, adequate moisture, and lower weed competition give seed the best start.',
+        source:'Penn State Extension — "Establishing Lawns from Seed"' },
+      { id:'fall_fert',   name:'Fall Fertilizer',   icon:'🌿', season:'fall',   priority:'high',
+        timing:[{start:[8,25],end:[10,15],label:'Aug 25 – Oct 15'}],
+        desc:'PSU recommends a late summer/early fall nitrogen application to replenish root carbohydrate reserves before winter dormancy. Slow-release formulas are preferred.',
+        source:'Penn State Extension — "Fertilizing Home Lawns"' },
+      { id:'spring_fert', name:'Spring Fertilizer', icon:'🌼', season:'spring', priority:'medium',
+        timing:[{start:[3,15],end:[5,1],label:'Mar 15 – May 1'}],
+        desc:'PSU Extension advises light spring feeding only after 3–4 mowings. Heavy early nitrogen promotes shoot growth at the expense of root development and disease resistance.',
+        source:'Penn State Extension — "Fertilizing Home Lawns"' },
+      { id:'preemergent', name:'Pre-Emergent Weed', icon:'🛡️', season:'spring', priority:'high',
+        timing:[{start:[2,20],end:[3,25],label:'Feb 20 – Mar 25'}],
+        desc:'PSU Extension ties pre-emergent timing to forsythia petal drop — the phenological indicator that soil temps are approaching 55°F. Apply before forsythia finishes blooming.',
+        source:'Penn State Extension — "Crabgrass Prevention in Home Lawns"' },
+      { id:'aeration',    name:'Aeration',           icon:'⛏️', season:'fall',   priority:'medium',
+        timing:[{start:[7,25],end:[9,10],label:'Jul 25 – Sep 10'}],
+        desc:'PSU recommends core aeration in late summer/early fall when cool-season grasses are actively growing and can recover quickly. Immediately pair with overseeding for best results.',
+        source:'Penn State Extension — "Aerating Home Lawns"' },
+      { id:'dethatch',    name:'Dethatching',        icon:'🍂', season:'fall',   priority:'low',
+        timing:[{start:[8,1],end:[9,5],label:'Aug 1 – Sep 5'}],
+        desc:'Only dethatch if thatch layer exceeds ½". PSU recommends late summer timing to allow recovery before winter and to prepare for fall overseeding.',
+        source:'Penn State Extension — "Thatch in Home Lawns"' },
+      { id:'watering',    name:'Watering Schedule',  icon:'💧', season:'summer', priority:'medium',
+        timing:[{start:[5,1],end:[9,15],label:'May – Sep 15'}],
+        desc:'PSU recommends 1–1.5" per week in one or two deep sessions. Water between 5–9am to reduce evaporation and disease risk. Allow soil to dry slightly between waterings.',
+        source:'Penn State Extension — "Watering Home Lawns"' },
+      { id:'mowing',      name:'Mowing Guidance',    icon:'🌾', season:'growing',priority:'low',
+        timing:[{start:[3,20],end:[10,31],label:'Apr – Oct'}],
+        desc:'PSU recommends maintaining a 3–4" mowing height. Never remove more than ⅓ of the blade in a single mowing. Raise height to 4" during summer heat stress.',
+        source:'Penn State Extension — "Mowing Home Lawns"' },
+    ],
+    // UMN Extension: seed Aug 1–Sep 30; fall fert early Aug–mid-Oct; spring fert May–late Jun;
+    // pre-emergent when soil 55°F at 1–2" depth (mid-Apr to mid-May); aerate mid-Aug–mid-Oct; dethatch mid-Aug–Sep
+    midwest: [
+      { id:'overseed',    name:'Overseed',          icon:'🌱', season:'fall',   priority:'high',
+        timing:[{start:[7,15],end:[9,25],label:'Aug 1 – Sep 25'}],
+        desc:'University of Minnesota Extension gives the green light for overseeding from early August through late September, when soil temperatures are between 50–65°F — the optimal range for cool-season germination. UMN notes that seeding close to Labor Day (early September) gives the best chance of full establishment before winter. Minnesota\'s cool nights in late August accelerate germination.',
+        source:'University of Minnesota Extension — "Lawn Care Calendar" & Turfgrass Science Program' },
+      { id:'seed_new',    name:'Plant New Seed',     icon:'🪴', season:'fall',   priority:'high',
+        timing:[{start:[7,10],end:[9,20],label:'Aug 1 – Sep 20'}],
+        desc:'UMN Extension identifies fall as the primary seeding window for Minnesota. Seeding within a week of Labor Day produces the most complete establishment before freeze-up. A secondary spring window (late April–early June) exists but is significantly less reliable due to summer heat stress arriving before roots fully establish.',
+        source:'University of Minnesota Extension — "Lawn Care Calendar" & "Dormant Seeding"' },
+      { id:'fall_fert',   name:'Fall Fertilizer',   icon:'🌿', season:'fall',   priority:'high',
+        timing:[{start:[7,15],end:[10,15],label:'Early Aug – Mid-Oct'}],
+        desc:'UMN Extension recommends fall fertilization as the single most important nitrogen application of the year. Optimal soil temperatures of 50–65°F in fall allow roots to absorb and store nutrients for winter survival and spring green-up. UMN specifies the window as early August through mid-October. Note: Minnesota law prohibits phosphorus fertilizer unless establishing a new lawn or a soil test confirms need — use a 24-0-12 or similar formula.',
+        source:'University of Minnesota Extension — "Fertilizing Lawns" & Minnesota Phosphorus Fertilizer Law' },
+      { id:'spring_fert', name:'Spring Fertilizer', icon:'🌼', season:'spring', priority:'medium',
+        timing:[{start:[4,25],end:[6,20],label:'May – Late June'}],
+        desc:'UMN Extension identifies May through late June as the second-best fertilization window, when soil temperatures are 55–65°F and grass is actively growing. UMN explicitly warns against early spring applications — fertilizing too early encourages growth when roots should be storing energy. Do not fertilize during summer heat (July–August), which can cause irreversible damage.',
+        source:'University of Minnesota Extension — "Fertilizing Lawns" & "Lawn Care Calendar"' },
+      { id:'preemergent', name:'Pre-Emergent Weed', icon:'🛡️', season:'spring', priority:'high',
+        timing:[{start:[3,20],end:[5,15],label:'Mid-Apr – Mid-May (soil-temp driven)'}],
+        desc:'UMN Extension and the UMN Turfgrass Science Program specify that pre-emergent herbicides must be applied before soil temperatures reach 55°F at the 1–2 inch depth for several consecutive days — the threshold at which crabgrass begins germinating. In Minnesota, this typically means mid-April to mid-May, but UMN emphasizes this cannot be tied to a fixed calendar date. Use the UMN Turfgrass Decision Support Dashboard or soil thermometer to confirm timing. Apply a second application 6–8 weeks later for season-long control. UMN also notes: apply pre-emergents and fertilizers as separate applications.',
+        source:'University of Minnesota Extension — "Crabgrass"; UMN Turfgrass Science — "Spring Preemergent Applications"' },
+      { id:'aeration',    name:'Aeration',           icon:'⛏️', season:'fall',   priority:'medium',
+        timing:[{start:[7,15],end:[10,15],label:'Mid-Aug – Mid-Oct'}],
+        desc:'UMN Extension specifies mid-August through mid-October as the best aeration window, when cool-season grasses are growing vigorously and can heal quickly. A spring alternative window (late April–May) exists for lawns that cannot be aerated in fall. UMN recommends pairing aeration immediately with overseeding for maximum seed-to-soil contact.',
+        source:'University of Minnesota Extension — "Guide to Spring Lawn Tasks" & "Lawn Care Calendar"' },
+      { id:'dethatch',    name:'Dethatching',        icon:'🍂', season:'fall',   priority:'low',
+        timing:[{start:[7,15],end:[9,1],label:'Mid-Aug – Sep'}],
+        desc:'UMN Extension recommends dethatching from mid-August through September — during active fall growth when the lawn can recover before winter. Only dethatch if thatch exceeds ½". Combine with overseeding immediately after for best results.',
+        source:'University of Minnesota Extension — "Guide to Spring Lawn Tasks"' },
+      { id:'watering',    name:'Watering Schedule',  icon:'💧', season:'summer', priority:'medium',
+        timing:[{start:[5,1],end:[9,10],label:'May – Sep 10'}],
+        desc:'UMN Extension recommends 1–1.5" of water per week during the growing season. Minnesota\'s clay soils need slow, deep irrigation to penetrate without runoff. Water in the early morning to reduce disease pressure. Grass roots can be damaged when soil temperatures exceed 85°F — deeper watering keeps roots cooler.',
+        source:'University of Minnesota Extension — "Lawn Care Calendar"' },
+      { id:'mowing',      name:'Mowing Guidance',    icon:'🌾', season:'growing',priority:'low',
+        timing:[{start:[4,5],end:[10,25],label:'Apr – Oct'}],
+        desc:'UMN Extension recommends maintaining cool-season grasses at 3–4" height, raised to 4.5" during July/August heat stress. Never remove more than ⅓ of the blade in a single mowing. Returning clippings provides free nitrogen and does not contribute to thatch buildup.',
+        source:'University of Minnesota Extension — "Lawn Care Calendar"' },
+    ],
+    // NC State Extension: "Fescue seeding window Aug 15–Oct 15; pre-emergent late Feb"
+    transition: [
+      { id:'overseed',    name:'Overseed',          icon:'🌱', season:'fall',   priority:'high',
+        timing:[{start:[8,15],end:[10,15],label:'Aug 15 – Oct 15'}],
+        desc:'NC State Extension defines the tall fescue overseeding window as mid-August through mid-October. Soil temps must be below 70°F. Early September is ideal in most of NC/VA.',
+        source:'NC State Extension — "Overseeding Tall Fescue Lawns"' },
+      { id:'seed_new',    name:'Plant New Seed',     icon:'🪴', season:'fall',   priority:'high',
+        timing:[{start:[8,10],end:[10,10],label:'Aug 10 – Oct 10'}],
+        desc:'NC State recommends fall as the only reliable establishment window for cool-season grasses in the transition zone. Spring seeding consistently fails due to early summer heat and weed pressure.',
+        source:'NC State Extension — "Tall Fescue Lawn Establishment"' },
+      { id:'fall_fert',   name:'Fall Fertilizer',   icon:'🌿', season:'fall',   priority:'high',
+        timing:[{start:[9,10],end:[10,25],label:'Sep 10 – Oct 25'}],
+        desc:'NCSU recommends a split fall application: one at seeding time and one 6–8 weeks later. Slow-release nitrogen is preferred to avoid pushing growth before winter.',
+        source:'NC State Extension — "Fertilizing Fescue Lawns"' },
+      { id:'spring_fert', name:'Spring Fertilizer', icon:'🌼', season:'spring', priority:'medium',
+        timing:[{start:[3,1],end:[4,15],label:'Mar 1 – Apr 15'}],
+        desc:'NCSU advises a light spring application only. Transition zone springs can be warm and wet, making excess nitrogen a disease risk for cool-season turf.',
+        source:'NC State Extension — "Fertilizing Fescue Lawns"' },
+      { id:'preemergent', name:'Pre-Emergent Weed', icon:'🛡️', season:'spring', priority:'high',
+        timing:[{start:[1,25],end:[3,10],label:'Jan 25 – Mar 10'}],
+        desc:'NC State Extension recommends earlier pre-emergent application than northern states — soil warms faster in the transition zone. Target application before soil reaches 55°F, often by mid-February.',
+        source:'NC State Extension — "Pre-emergence Herbicides for Turfgrass"' },
+      { id:'aeration',    name:'Aeration',           icon:'⛏️', season:'fall',   priority:'medium',
+        timing:[{start:[8,20],end:[9,15],label:'Aug 20 – Sep 15'}],
+        desc:'NCSU recommends aerating just before overseeding in late summer. This is the most important cultural practice for transition zone fescue lawns dealing with clay soils and summer stress.',
+        source:'NC State Extension — "Aerating Home Lawns"' },
+      { id:'dethatch',    name:'Dethatching',        icon:'🍂', season:'fall',   priority:'low',
+        timing:[{start:[8,15],end:[9,5],label:'Aug 15 – Sep 5'}],
+        desc:'NCSU recommends late summer dethatching before overseeding. Fescue lawns with more than ½" thatch respond significantly better to overseeding after dethatching.',
+        source:'NC State Extension — "Thatch in Turfgrass"' },
+      { id:'watering',    name:'Watering Schedule',  icon:'💧', season:'summer', priority:'medium',
+        timing:[{start:[4,15],end:[10,1],label:'Apr 15 – Oct 1'}],
+        desc:'NCSU recommends 1–1.25" per week during active growth. Transition zone summers can be brutally hot — water in the morning and consider allowing fescue to go semi-dormant in extreme heat.',
+        source:'NC State Extension — "Irrigating Turfgrass"' },
+      { id:'mowing',      name:'Mowing Guidance',    icon:'🌾', season:'growing',priority:'low',
+        timing:[{start:[3,10],end:[11,1],label:'Mar – Nov'}],
+        desc:'NCSU recommends 3.5–4" mowing height for tall fescue. Higher cutting heights in summer reduce heat stress significantly. Never mow below 3" in the transition zone.',
+        source:'NC State Extension — "Mowing Turfgrass"' },
+    ],
+    // UC ANR: "Overseed cool-season grasses Sep–Nov; pre-emergent before rains, Sep–Oct"
+    pacific: [
+      { id:'overseed',    name:'Overseed',          icon:'🌱', season:'fall',   priority:'high',
+        timing:[{start:[8,25],end:[10,15],label:'Sep 1 – Oct 15'}],
+        desc:'UC ANR recommends overseeding as fall rains arrive and summer heat breaks. Coastal areas can seed earlier; inland valleys should wait until overnight temps drop below 65°F.',
+        source:'UC Agriculture & Natural Resources — "Lawn Establishment"' },
+      { id:'seed_new',    name:'Plant New Seed',     icon:'🪴', season:'fall',   priority:'high',
+        timing:[{start:[8,25],end:[10,20],label:'Sep 1 – Oct 20'}],
+        desc:'UC ANR identifies fall as the optimal establishment period — coinciding with the return of natural rainfall and cooler temperatures. Summer seeding requires intensive irrigation.',
+        source:'UC Agriculture & Natural Resources — "Establishing a New Lawn"' },
+      { id:'fall_fert',   name:'Fall Fertilizer',   icon:'🌿', season:'fall',   priority:'high',
+        timing:[{start:[9,15],end:[11,1],label:'Sep 15 – Nov 1'}],
+        desc:'UC ANR recommends fall fertilization as rains return and lawns come out of summer dormancy. Pacific Coast climates allow a wider fall window than other regions.',
+        source:'UC Agriculture & Natural Resources — "Fertilizing Lawns"' },
+      { id:'spring_fert', name:'Spring Fertilizer', icon:'🌼', season:'spring', priority:'medium',
+        timing:[{start:[3,1],end:[4,20],label:'Mar 1 – Apr 20'}],
+        desc:'UC ANR advises light spring feeding. Avoid heavy nitrogen during wet periods, which can promote disease in Pacific Coast lawns.',
+        source:'UC Agriculture & Natural Resources — "Fertilizing Lawns"' },
+      { id:'preemergent', name:'Pre-Emergent Weed', icon:'🛡️', season:'spring', priority:'high',
+        timing:[{start:[2,10],end:[3,20],label:'Feb 10 – Mar 20'}],
+        desc:'UC ANR recommends pre-emergent application before soil temperatures reach 55°F — often late February on the Pacific Coast. Timing varies significantly between coastal and inland areas.',
+        source:'UC Agriculture & Natural Resources — "Weed Management in Lawns"' },
+      { id:'aeration',    name:'Aeration',           icon:'⛏️', season:'fall',   priority:'medium',
+        timing:[{start:[8,25],end:[10,10],label:'Sep 1 – Oct 10'}],
+        desc:'UC ANR recommends fall aeration as soils soften from the first rains. Combined with overseeding, this is the highest-impact fall renovation practice for Pacific Coast lawns.',
+        source:'UC Agriculture & Natural Resources — "Aerating Lawns"' },
+      { id:'dethatch',    name:'Dethatching',        icon:'🍂', season:'fall',   priority:'low',
+        timing:[{start:[8,25],end:[9,25],label:'Sep 1 – Sep 25'}],
+        desc:'UC ANR recommends dethatching before the rainy season begins. Late September is optimal — dry enough to work easily, but growth returning.',
+        source:'UC Agriculture & Natural Resources — "Thatch in Lawns"' },
+      { id:'watering',    name:'Watering Schedule',  icon:'💧', season:'summer', priority:'medium',
+        timing:[{start:[5,15],end:[9,30],label:'May 15 – Sep 30'}],
+        desc:'UC ANR recommends irrigation only during the dry summer season. Pacific Coast lawns rely on natural rainfall the rest of the year. Deep, infrequent watering prevents shallow rooting.',
+        source:'UC Agriculture & Natural Resources — "Watering Lawns"' },
+      { id:'mowing',      name:'Mowing Guidance',    icon:'🌾', season:'growing',priority:'low',
+        timing:[{start:[2,15],end:[11,30],label:'Mar – Nov'}],
+        desc:'UC ANR recommends 3–4" mowing height. Pacific Coast mild climates allow nearly year-round mowing. Raise height slightly during dry summers to reduce water needs.',
+        source:'UC Agriculture & Natural Resources — "Mowing Lawns"' },
+    ],
+    // CSU Extension: "Seed KBG/fescue Jul–Aug; avoid seeding after Sep 1 at elevation"
+    mountain: [
+      { id:'overseed',    name:'Overseed',          icon:'🌱', season:'fall',   priority:'high',
+        timing:[{start:[6,25],end:[8,15],label:'Jul 1 – Aug 15'}],
+        desc:'Colorado State Extension emphasizes the narrow mountain seeding window. Overseed by mid-August to ensure 6 weeks of growth before first frost. Higher elevations (>6,000 ft) should target early July.',
+        source:'Colorado State Extension — "Lawn Care in Colorado"' },
+      { id:'seed_new',    name:'Plant New Seed',     icon:'🪴', season:'fall',   priority:'high',
+        timing:[{start:[6,20],end:[8,10],label:'Jul 1 – Aug 10'}],
+        desc:'CSU Extension stresses that the mountain seeding window is extremely limited. New lawns must be established by early August or risk frost kill before establishment.',
+        source:'Colorado State Extension — "Establishing a Lawn"' },
+      { id:'fall_fert',   name:'Fall Fertilizer',   icon:'🌿', season:'fall',   priority:'high',
+        timing:[{start:[8,10],end:[9,20],label:'Aug 10 – Sep 20'}],
+        desc:'CSU recommends earlier fall fertilization than lower elevations — the growing season ends sooner. A September application helps roots build reserves before the long mountain winter.',
+        source:'Colorado State Extension — "Fertilizing Lawns"' },
+      { id:'spring_fert', name:'Spring Fertilizer', icon:'🌼', season:'spring', priority:'medium',
+        timing:[{start:[4,15],end:[5,20],label:'Apr 15 – May 20'}],
+        desc:'CSU Extension recommends waiting until consistent growth begins — late April to May at most elevations. Late spring frosts are common and can damage actively growing fertilized turf.',
+        source:'Colorado State Extension — "Fertilizing Lawns"' },
+      { id:'preemergent', name:'Pre-Emergent Weed', icon:'🛡️', season:'spring', priority:'high',
+        timing:[{start:[4,1],end:[5,10],label:'Apr 1 – May 10'}],
+        desc:'CSU Extension recommends pre-emergent application after the last significant snowfall but before soil temps reach 55°F. Mountain weed pressure is lower but crabgrass is still a concern at lower elevations.',
+        source:'Colorado State Extension — "Weed Control in Lawns"' },
+      { id:'aeration',    name:'Aeration',           icon:'⛏️', season:'fall',   priority:'medium',
+        timing:[{start:[6,25],end:[8,5],label:'Jul 1 – Aug 5'}],
+        desc:'CSU recommends early summer aeration to maximize recovery time in the short growing season. Mountain soils can be rocky — use core aeration cautiously and check for large stones first.',
+        source:'Colorado State Extension — "Aerating Lawns"' },
+      { id:'dethatch',    name:'Dethatching',        icon:'🍂', season:'fall',   priority:'low',
+        timing:[{start:[7,1],end:[8,1],label:'Jul 1 – Aug 1'}],
+        desc:'CSU recommends summer dethatching during the active growing window. The short mountain season means timing must be earlier than other regions.',
+        source:'Colorado State Extension — "Thatch Management"' },
+      { id:'watering',    name:'Watering Schedule',  icon:'💧', season:'summer', priority:'medium',
+        timing:[{start:[5,1],end:[9,1],label:'May – Sep 1'}],
+        desc:'CSU recommends 1–1.5" per week during the growing season. Mountain afternoon thunderstorms can provide significant irrigation — adjust schedule accordingly. Water in the morning before afternoon storms.',
+        source:'Colorado State Extension — "Watering Lawns"' },
+      { id:'mowing',      name:'Mowing Guidance',    icon:'🌾', season:'growing',priority:'low',
+        timing:[{start:[4,20],end:[10,1],label:'May – Sep'}],
+        desc:'CSU recommends 3.5–4.5" mowing height. The short mountain growing season means every mowing matters — never scalp the lawn or remove more than ⅓ of the blade.',
+        source:'Colorado State Extension — "Mowing Lawns"' },
+    ],
+  };
+
+  // Fall back to midwest if zone not found
+  const tasks = (calendars[zone] || calendars['midwest']).map(task => {
+    const windows = task.timing.map(w => {
+      const start = new Date(yr, w.start[0], w.start[1]);
+      const end   = new Date(yr, w.end[0], w.end[1]);
+      const daysUntilStart = Math.ceil((start - today) / 86400000);
+      const daysUntilEnd   = Math.ceil((end - today) / 86400000);
+      const isActive   = today >= start && today <= end;
+      const isUpcoming = !isActive && daysUntilStart > 0 && daysUntilStart <= 45;
+      const isPast     = daysUntilEnd < 0;
+      const status = isPast ? 'past' : isActive ? 'active' : isUpcoming ? 'upcoming' : 'future';
+      return { ...w, start, end, daysUntilStart, daysUntilEnd, isActive, isUpcoming, isPast, status };
+    });
+    const bestWindow = windows.find(w => w.isActive) || windows.find(w => w.isUpcoming) || windows[0];
+    return { ...task, windows, bestWindow };
+  });
+
+  return tasks;
+}
+
+function getClimateZone(zip) {
+  const n = parseInt(zip, 10);
+  if (isNaN(n)) return 'midwest';
+  const p = Math.floor(n / 1000);
+  if (p <= 9)  return 'warm';
+  if (p <= 19) return 'northeast';
+  if (p <= 26) return 'northeast';
+  if (p <= 29) return 'transition';
+  if (p <= 39) return 'warm';
+  if (p <= 52) return 'midwest';
+  if (p <= 56) return 'midwest';
+  if (p <= 59) return 'midwest';
+  if (p <= 65) return 'midwest';
+  if (p <= 69) return 'midwest';
+  if (p <= 79) return 'warm';
+  if (p <= 84) return 'mountain';
+  if (p <= 86) return 'warm';
+  if (p <= 89) return 'mountain';
+  if (p <= 96) return 'pacific';
+  if (p <= 99) return 'pacific';
+  return 'midwest';
+}
+
+function getRegionLabel(zone) {
+  return { northeast:'Northeast', midwest:'Midwest', transition:'Transition Zone', warm:'Warm Climate', mountain:'Mountain West', pacific:'Pacific Coast' }[zone] || 'Your Region';
+}
+
+// ─── SHARED UI ────────────────────────────────────────────────────────────────
+const StatusBadge = ({ status, daysUntilStart }) => {
+  const c = {
+    active:   { bg:T.greenPale,  color:T.green,    text:'Do it now' },
+    upcoming: { bg:T.goldPale,   color:T.gold,     text: daysUntilStart===1 ? 'Tomorrow' : `In ${daysUntilStart}d` },
+    past:     { bg:T.border,     color:T.textSoft,  text:'Done for year' },
+    future:   { bg:T.bgDeep,     color:T.textMid,   text:'Later this year' },
+  }[status] || {};
+  return <span style={{ display:'inline-block', background:c.bg, color:c.color, fontSize:10.5, fontWeight:600, padding:'3px 8px', borderRadius:99, letterSpacing:'0.02em', whiteSpace:'nowrap' }}>{c.text}</span>;
+};
+
+const SeasonDot = ({ season }) => {
+  const cols = { fall:'#c97c3a', spring:'#6daf58', summer:'#5ba8d4', growing:'#7bc67e' };
+  return <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background:cols[season]||T.green, marginRight:5, flexShrink:0 }} />;
+};
+
+const YearProgress = ({ today }) => {
+  const start = new Date(today.getFullYear(), 0, 1);
+  const end   = new Date(today.getFullYear(), 11, 31);
+  const pct   = (today - start) / (end - start) * 100;
+  const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  return (
+    <div style={{ padding:'0 20px 4px' }}>
+      <div style={{ position:'relative', height:4, background:T.border, borderRadius:99 }}>
+        <div style={{ position:'absolute', left:0, top:0, height:'100%', width:`${pct}%`, background:T.green, borderRadius:99, transition:'width 0.6s ease' }} />
+        <div style={{ position:'absolute', top:-4, left:`${pct}%`, transform:'translateX(-50%)', width:12, height:12, borderRadius:'50%', background:T.green, border:`2.5px solid ${T.bgCard}`, boxShadow:T.shadow, transition:'left 0.6s ease' }} />
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
+        {months.map((m,i) => (
+          <span key={i} style={{ fontSize:9, color: i===today.getMonth() ? T.green : T.textSoft, fontWeight: i===today.getMonth() ? 700 : 400, transition:'color 0.3s' }}>{m}</span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── GRASS SEED PICKER (inline on seed tasks) ─────────────────────────────────
+const GrassSeedPicker = ({ zone, onClose }) => {
+  const [selectedCondition, setSelectedCondition] = useState(null);
+  const [expandedVariety, setExpandedVariety] = useState(null);
+
+  const varieties = selectedCondition
+    ? ((GRASS_VARIETIES[zone] || GRASS_VARIETIES['midwest'])[selectedCondition] || [])
+    : [];
+
+  return (
+    <div className="fade-up" style={{ background:T.bgCard, borderRadius:T.radius, border:`1px solid ${T.border}`, overflow:'hidden', marginTop:12 }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', borderBottom:`1px solid ${T.border}` }}>
+        <div>
+          <div style={{ fontSize:14, fontWeight:700, color:T.text }}>Grass Seed Finder</div>
+          <div style={{ fontSize:11, color:T.textSoft, marginTop:1 }}>Recommendations for your region</div>
+        </div>
+        <button onClick={onClose} style={{ background:T.bgDeep, border:'none', cursor:'pointer', width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:T.textMid }}>✕</button>
+      </div>
+
+      {/* Condition selector */}
+      <div style={{ padding:'14px 16px', borderBottom:`1px solid ${T.border}` }}>
+        <div style={{ fontSize:11, fontWeight:600, color:T.textSoft, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:10 }}>Select your site conditions</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          {CONDITION_OPTIONS.map(opt => {
+            const isSelected = selectedCondition === opt.id;
+            return (
+              <button key={opt.id} onClick={() => { setSelectedCondition(opt.id); setExpandedVariety(null); }} style={{
+                padding:'10px 12px', borderRadius:T.radiusSm, border:`1.5px solid ${isSelected ? T.green : T.border}`,
+                background: isSelected ? T.greenPale : T.bg,
+                cursor:'pointer', textAlign:'left', fontFamily:'Sora, sans-serif', transition:'all 0.15s',
+                display:'flex', alignItems:'center', gap:8,
+              }}>
+                <span style={{ fontSize:16 }}>{opt.icon}</span>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:600, color: isSelected ? T.green : T.text }}>{opt.label}</div>
+                  <div style={{ fontSize:10, color:T.textSoft }}>{opt.sublabel}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Variety list */}
+      {selectedCondition && (
+        <div style={{ padding:'14px 16px' }}>
+          <div style={{ fontSize:11, fontWeight:600, color:T.textSoft, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:10 }}>
+            {varieties.length} recommendation{varieties.length!==1?'s':''} for {CONDITION_OPTIONS.find(o=>o.id===selectedCondition)?.label}
+          </div>
+          {varieties.map((v, i) => {
+            const isExpanded = expandedVariety === i;
+            return (
+              <div key={i} style={{ marginBottom:8, borderRadius:T.radiusSm, border:`1px solid ${isExpanded ? T.greenLt : T.border}`, overflow:'hidden', transition:'border-color 0.2s' }}>
+                <button onClick={() => setExpandedVariety(isExpanded ? null : i)} style={{
+                  width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 14px',
+                  background: isExpanded ? T.greenPale : T.bgCard, border:'none', cursor:'pointer',
+                  fontFamily:'Sora, sans-serif', transition:'background 0.2s', textAlign:'left',
+                }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background: isExpanded ? T.green : T.bgDeep, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>🌱</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: isExpanded ? T.green : T.text }}>{v.name}</div>
+                    <div style={{ fontSize:11, color:T.textSoft, fontStyle:'italic' }}>{v.species}</div>
+                  </div>
+                  <span style={{ color:T.textSoft, fontSize:14, transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>›</span>
+                </button>
+                {isExpanded && (
+                  <div style={{ padding:'12px 14px 14px', borderTop:`1px solid ${T.border}`, background:T.bgCard }}>
+                    {/* Cultivars */}
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:T.textSoft, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:6 }}>Recommended Cultivars</div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                        {v.cultivars.map((c,j) => (
+                          <span key={j} style={{ fontSize:11, fontWeight:500, color:T.green, background:T.greenPale, padding:'3px 9px', borderRadius:99 }}>{c}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Pros */}
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:'oklch(46% 0.14 142)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:5 }}>Pros</div>
+                      {v.pros.map((p,j) => (
+                        <div key={j} style={{ display:'flex', gap:7, marginBottom:4 }}>
+                          <span style={{ color:T.green, fontSize:11, flexShrink:0, marginTop:1 }}>✓</span>
+                          <span style={{ fontSize:12, color:T.text, lineHeight:1.5 }}>{p}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Cons */}
+                    <div>
+                      <div style={{ fontSize:10, fontWeight:700, color:T.alert, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:5 }}>Considerations</div>
+                      {v.cons.map((c,j) => (
+                        <div key={j} style={{ display:'flex', gap:7, marginBottom:4 }}>
+                          <span style={{ color:T.alert, fontSize:11, flexShrink:0, marginTop:1 }}>!</span>
+                          <span style={{ fontSize:12, color:T.text, lineHeight:1.5 }}>{c}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── TASK DETAIL SCREEN ───────────────────────────────────────────────────────
+const TASK_TIPS = {
+  overseed:    ['Mow existing grass short (2–2.5") before overseeding','Rake or dethatch to improve seed-to-soil contact','Use a starter fertilizer, not your regular lawn formula','Keep soil surface moist until germination (7–14 days)','Avoid foot traffic for 4 weeks after seeding'],
+  seed_new:    ['Loosen soil 4–6" deep and remove rocks/debris','Add starter fertilizer and compost, then rake level','Choose seed mix matched to your sun/shade conditions','Water lightly 2–3x daily until established','Stay off the area for at least 6 weeks'],
+  fall_fert:   ['Use slow-release nitrogen with higher potassium (e.g. 24-0-10)','Apply while grass is still actively growing','Water in lightly after application','Do not apply before heavy rain is forecast','More is not better — do not exceed the label rate'],
+  spring_fert: ['Wait until 3–4 growth cycles have occurred','Use lower-nitrogen formulas in spring to control disease risk','Apply evenly with a spreader for large lawns','Do not combine with pre-emergent herbicide in the same pass','Be aware: spring feeding will increase your mowing frequency'],
+  preemergent: ['Apply BEFORE soil temperatures reach 55°F — timing is everything','Split application: early + 8 weeks later for season-long control','Do NOT core aerate after applying — breaks the chemical barrier','Water in within 48 hours of application','Do not overseed within 3 months of pre-emergent application'],
+  aeration:    ['Soil should be moist but not waterlogged','Use a core aerator (hollow tines), not spike','Leave cores on the lawn — they break down and improve soil structure','Overseed immediately after for best seed-to-soil contact','Follow with fertilizer to maximize the open cores'],
+  dethatch:    ['Only dethatch if thatch layer exceeds ½"','Grass should be actively growing to recover','Water deeply 2 days before to soften thatch','Follow immediately with overseeding and fertilizer','Collect and remove all thatch debris'],
+  watering:    ['Target 1–1.5" of water per week total (rain + irrigation)','Water between 5–9am — less evaporation and disease risk','Allow soil to dry slightly between sessions to encourage deep roots','Use a rain gauge or can to measure actual water delivered','A screwdriver should penetrate 6" easily after adequate watering'],
+  mowing:      ['Never remove more than ⅓ of the blade in a single mowing','Keep mower blades sharp — dull blades tear and stress grass','Leave clippings on the lawn (free nitrogen, no thatch risk)','Vary your mowing direction each time to prevent ruts','Raise height to maximum during summer heat stress periods'],
+};
+
+const TaskDetail = ({ task, onBack, today, zone }) => {
+  const [showSeedPicker, setShowSeedPicker] = useState(false);
+  const w = task.bestWindow;
+  const totalDays = Math.ceil((w.end - w.start) / 86400000);
+  const elapsed   = Math.max(0, Math.ceil((today - w.start) / 86400000));
+  const pct       = Math.min(100, Math.max(0, elapsed / totalDays * 100));
+  const source    = EXTENSION_SOURCES[zone] || { name:'University Extension', abbr:'Ext.' };
+  const isSeedTask = task.id === 'overseed' || task.id === 'seed_new';
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', background:T.bg, fontFamily:'Sora, sans-serif', overflowY:'auto' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', padding:'14px 18px 12px', borderBottom:`1px solid ${T.border}`, background:T.bgCard, flexShrink:0 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', fontSize:22, color:T.textMid, marginRight:10, padding:'2px 6px 2px 0', display:'flex', lineHeight:1 }}>←</button>
+        <div style={{ flex:1, fontSize:15, fontWeight:600, color:T.text }}>Task Details</div>
+      </div>
+
+      <div style={{ padding:'20px 18px', flex:1 }}>
+        {/* Hero */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20 }}>
+          <div style={{ width:52, height:52, borderRadius:16, background: w.isActive ? T.greenPale : T.goldPale, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>{task.icon}</div>
+          <div>
+            <div style={{ fontSize:19, fontWeight:700, color:T.text, marginBottom:5 }}>{task.name}</div>
+            <StatusBadge status={w.status} daysUntilStart={w.daysUntilStart} />
+          </div>
+        </div>
+
+        {/* Timing */}
+        <div style={{ background:T.bgCard, borderRadius:T.radius, padding:'16px 18px', marginBottom:12, border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:10, fontWeight:600, color:T.textSoft, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:7 }}>Timing Window</div>
+          <div style={{ fontSize:16, fontWeight:600, color:T.text, marginBottom: w.isActive ? 10 : 4 }}>{w.label}</div>
+          {w.isActive && (
+            <>
+              <div style={{ height:5, background:T.border, borderRadius:99, marginBottom:5, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${pct}%`, background:T.green, borderRadius:99 }} />
+              </div>
+              <div style={{ fontSize:11, color:T.textSoft }}>{elapsed} of {totalDays} days in · {Math.max(0, totalDays-elapsed)} days remaining</div>
+            </>
+          )}
+          {w.isUpcoming && <div style={{ fontSize:12, color:T.gold, fontWeight:500 }}>Window opens in {w.daysUntilStart} day{w.daysUntilStart!==1?'s':''}</div>}
+        </div>
+
+        {/* Description */}
+        <div style={{ background:T.bgCard, borderRadius:T.radius, padding:'16px 18px', marginBottom:12, border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:10, fontWeight:600, color:T.textSoft, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:7 }}>Why This Timing</div>
+          <div style={{ fontSize:13, color:T.text, lineHeight:1.75 }}>{task.desc}</div>
+          {/* Citation footnote */}
+          <div style={{ marginTop:10, paddingTop:10, borderTop:`1px dashed ${T.border}`, display:'flex', gap:6, alignItems:'flex-start' }}>
+            <span style={{ fontSize:10, color:T.textSoft, flexShrink:0 }}>📚</span>
+            <div style={{ fontSize:10, color:T.textSoft, lineHeight:1.5 }}><span style={{ fontWeight:600 }}>{source.abbr}:</span> {task.source}</div>
+          </div>
+        </div>
+
+        {/* Grass Seed Picker (seed tasks only) */}
+        {isSeedTask && (
+          <div style={{ marginBottom:12 }}>
+            {!showSeedPicker ? (
+              <button onClick={() => setShowSeedPicker(true)} style={{
+                width:'100%', padding:'14px 18px', borderRadius:T.radius, border:`1.5px dashed ${T.greenLt}`,
+                background:T.greenPale, cursor:'pointer', fontFamily:'Sora, sans-serif',
+                display:'flex', alignItems:'center', gap:12, transition:'all 0.15s',
+              }}>
+                <span style={{ fontSize:22 }}>🌱</span>
+                <div style={{ textAlign:'left' }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:T.green }}>Find the right grass seed</div>
+                  <div style={{ fontSize:11, color:T.textMid }}>Recommendations by sun, shade & site conditions</div>
+                </div>
+                <span style={{ marginLeft:'auto', color:T.green, fontSize:16 }}>›</span>
+              </button>
+            ) : (
+              <GrassSeedPicker zone={zone} onClose={() => setShowSeedPicker(false)} />
+            )}
+          </div>
+        )}
+
+        {/* Tips */}
+        <div style={{ background:T.bgCard, borderRadius:T.radius, padding:'16px 18px', border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:10, fontWeight:600, color:T.textSoft, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:12 }}>Pro Tips</div>
+          {(TASK_TIPS[task.id] || []).map((tip, i) => (
+            <div key={i} style={{ display:'flex', gap:10, marginBottom:9, alignItems:'flex-start' }}>
+              <div style={{ width:18, height:18, borderRadius:'50%', background:T.greenPale, color:T.green, fontSize:9.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1.5 }}>{i+1}</div>
+              <div style={{ fontSize:12.5, color:T.text, lineHeight:1.65 }}>{tip}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── ZIP ENTRY SCREEN ─────────────────────────────────────────────────────────
+const ZipScreen = ({ onSubmit }) => {
+  const [zip, setZip] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handle = () => {
+    if (zip.length !== 5 || isNaN(parseInt(zip))) { setError('Please enter a valid 5-digit ZIP'); return; }
+    setLoading(true);
+    setTimeout(() => { setLoading(false); onSubmit(zip); }, 800);
+  };
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.bg, padding:'0 28px', fontFamily:'Sora, sans-serif' }}>
+      <div style={{ width:'100%', maxWidth:340 }}>
+        <div style={{ textAlign:'center', marginBottom:38 }}>
+          <div style={{ width:68, height:68, borderRadius:22, background:T.greenPale, display:'flex', alignItems:'center', justifyContent:'center', fontSize:34, margin:'0 auto 18px', boxShadow:T.shadow }}>🌿</div>
+          <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:8, letterSpacing:'-0.01em' }}>Easy Lawn</div>
+          <div style={{ fontSize:13, color:T.textMid, lineHeight:1.65 }}>Get a precise, university-backed care schedule for your cool-season lawn — tailored to your local climate.</div>
+        </div>
+        <label style={{ fontSize:11, fontWeight:600, color:T.textMid, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:8, display:'block' }}>Your ZIP Code</label>
+        <input
+          value={zip}
+          onChange={e => { setZip(e.target.value.replace(/\D/g,'').slice(0,5)); setError(''); }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={e => e.key==='Enter' && handle()}
+          placeholder="Enter 5-digit ZIP"
+          inputMode="numeric"
+          maxLength={5}
+          style={{
+            width:'100%', padding:'15px 18px', fontSize:20, fontWeight:600, letterSpacing:'0.14em',
+            background:T.bgCard, border:`2px solid ${focused ? T.green : T.border}`,
+            borderRadius:T.radius, outline:'none', color:T.text, fontFamily:'Sora, sans-serif',
+            transition:'border-color 0.2s', marginBottom:error ? 6 : 14,
+          }}
+        />
+        {error && <div style={{ color:T.alert, fontSize:11.5, marginBottom:10 }}>{error}</div>}
+        <button onClick={handle} style={{
+          width:'100%', padding:'15px', borderRadius:T.radius, border:'none',
+          background: zip.length===5 ? T.green : T.soilLight,
+          color:'#fff', fontSize:14.5, fontWeight:600, cursor:'pointer', transition:'all 0.2s',
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontFamily:'Sora, sans-serif',
+        }}>
+          {loading
+            ? <><span style={{ display:'inline-block', animation:'spin 0.7s linear infinite' }}>⏳</span> Detecting your region…</>
+            : 'See My Lawn Schedule →'
+          }
+        </button>
+        <div style={{ marginTop:24, display:'flex', alignItems:'center', gap:8, justifyContent:'center' }}>
+          <span style={{ fontSize:11, color:T.textSoft }}>Data from</span>
+          <span style={{ fontSize:11, fontWeight:600, color:T.soilMid }}>PSU · UI Ext. · NCSU · UC ANR · CSU</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── SOIL TEMPERATURE MODEL + LIVE FETCH ─────────────────────────────────────
+// Primary: Live fetch from Open-Meteo (free, no API key) — returns hourly soil
+//   temperature at 6cm depth from the nearest weather model grid point.
+//   API: https://api.open-meteo.com/v1/forecast?latitude=X&longitude=Y
+//          &hourly=soil_temperature_6cm&forecast_days=1&temperature_unit=fahrenheit
+// Fallback: Sinusoidal model calibrated against regional NOAA/university averages
+//   (MAWN for Midwest, CIMIS for Pacific, etc.)
+//   Formula: T_soil(doy) = T_mean + A × cos(2π/365 × (doy − peak_doy))
+
+const SOIL_PARAMS = {
+  northeast: { mean: 51, amp: 26, peak: 210 },
+  midwest:   { mean: 48, amp: 28, peak: 213 },
+  transition:{ mean: 58, amp: 22, peak: 208 },
+  pacific:   { mean: 57, amp: 16, peak: 220 },
+  mountain:  { mean: 46, amp: 24, peak: 218 },
+  warm:      { mean: 67, amp: 14, peak: 205 },
+};
+
+// ZIP code → approximate lat/lon centroid (coarse but sufficient for soil temp)
+function zipToLatLon(zip) {
+  const n = parseInt(zip, 10);
+  const p = Math.floor(n / 1000);
+  // Very rough centroids by zip prefix band
+  const map = {
+    0:{ lat:42.0, lon:-71.5 }, 1:{ lat:42.4, lon:-72.5 }, 2:{ lat:42.0, lon:-71.5 },
+    3:{ lat:43.5, lon:-71.5 }, 4:{ lat:44.0, lon:-69.5 }, 5:{ lat:44.5, lon:-72.8 },
+    6:{ lat:41.6, lon:-72.7 }, 7:{ lat:40.7, lon:-74.2 }, 8:{ lat:40.0, lon:-74.5 },
+    9:{ lat:40.5, lon:-75.0 }, 10:{ lat:40.7, lon:-74.0 }, 11:{ lat:40.6, lon:-73.9 },
+    12:{ lat:42.7, lon:-73.8 }, 13:{ lat:43.1, lon:-76.2 }, 14:{ lat:43.0, lon:-78.7 },
+    15:{ lat:40.4, lon:-79.9 }, 16:{ lat:41.1, lon:-80.7 }, 17:{ lat:40.3, lon:-76.9 },
+    18:{ lat:41.4, lon:-75.6 }, 19:{ lat:39.9, lon:-75.2 }, 20:{ lat:38.9, lon:-77.0 },
+    21:{ lat:39.3, lon:-76.6 }, 22:{ lat:38.8, lon:-77.1 }, 23:{ lat:37.5, lon:-77.4 },
+    24:{ lat:37.3, lon:-79.9 }, 25:{ lat:38.3, lon:-81.6 }, 26:{ lat:39.3, lon:-80.3 },
+    27:{ lat:36.0, lon:-79.8 }, 28:{ lat:35.2, lon:-80.8 }, 29:{ lat:34.0, lon:-81.0 },
+    30:{ lat:33.7, lon:-84.4 }, 31:{ lat:32.5, lon:-83.5 }, 32:{ lat:28.5, lon:-81.4 },
+    33:{ lat:25.8, lon:-80.2 }, 34:{ lat:27.3, lon:-80.3 }, 35:{ lat:33.5, lon:-86.8 },
+    36:{ lat:32.4, lon:-86.3 }, 37:{ lat:36.2, lon:-86.8 }, 38:{ lat:35.1, lon:-89.9 },
+    39:{ lat:32.3, lon:-90.2 }, 40:{ lat:38.2, lon:-85.7 }, 41:{ lat:37.1, lon:-84.1 },
+    42:{ lat:37.0, lon:-87.5 }, 43:{ lat:40.0, lon:-82.9 }, 44:{ lat:41.5, lon:-81.7 },
+    45:{ lat:39.8, lon:-84.2 }, 46:{ lat:39.8, lon:-86.1 }, 47:{ lat:39.8, lon:-86.1 },
+    48:{ lat:42.3, lon:-83.0 }, 49:{ lat:42.7, lon:-84.6 }, 50:{ lat:41.6, lon:-93.6 },
+    51:{ lat:42.0, lon:-95.9 }, 52:{ lat:42.0, lon:-91.6 }, 53:{ lat:43.1, lon:-89.4 },
+    54:{ lat:44.5, lon:-89.6 }, 55:{ lat:44.9, lon:-93.2 }, 56:{ lat:45.8, lon:-94.4 },
+    57:{ lat:43.5, lon:-96.7 }, 58:{ lat:46.9, lon:-96.8 }, 59:{ lat:46.9, lon:-100.8 },
+    60:{ lat:41.8, lon:-87.6 }, 61:{ lat:40.1, lon:-89.3 }, 62:{ lat:38.6, lon:-90.2 },
+    63:{ lat:38.6, lon:-90.2 }, 64:{ lat:39.1, lon:-94.6 }, 65:{ lat:37.2, lon:-93.3 },
+    66:{ lat:39.1, lon:-95.7 }, 67:{ lat:37.7, lon:-97.3 }, 68:{ lat:41.3, lon:-96.1 },
+    69:{ lat:41.1, lon:-100.7 }, 70:{ lat:29.9, lon:-90.1 }, 71:{ lat:32.5, lon:-92.1 },
+    72:{ lat:34.7, lon:-92.3 }, 73:{ lat:35.5, lon:-97.5 }, 74:{ lat:36.1, lon:-95.9 },
+    75:{ lat:32.8, lon:-96.8 }, 76:{ lat:32.7, lon:-97.3 }, 77:{ lat:29.7, lon:-95.4 },
+    78:{ lat:29.4, lon:-98.5 }, 79:{ lat:31.5, lon:-100.4 }, 80:{ lat:39.7, lon:-104.9 },
+    81:{ lat:38.8, lon:-104.8 }, 82:{ lat:41.1, lon:-104.8 }, 83:{ lat:43.6, lon:-116.2 },
+    84:{ lat:40.8, lon:-111.9 }, 85:{ lat:33.4, lon:-112.1 }, 86:{ lat:35.2, lon:-111.6 },
+    87:{ lat:35.1, lon:-106.6 }, 88:{ lat:32.3, lon:-106.8 }, 89:{ lat:36.2, lon:-115.2 },
+    90:{ lat:34.0, lon:-118.2 }, 91:{ lat:34.1, lon:-118.0 }, 92:{ lat:32.7, lon:-117.2 },
+    93:{ lat:36.7, lon:-119.8 }, 94:{ lat:37.8, lon:-122.3 }, 95:{ lat:38.6, lon:-121.5 },
+    96:{ lat:40.6, lon:-122.4 }, 97:{ lat:45.5, lon:-122.7 }, 98:{ lat:47.6, lon:-122.3 },
+    99:{ lat:47.7, lon:-117.4 },
+  };
+  return map[p] || map[60]; // default Chicago
+}
+
+async function fetchLiveSoilTemp(zip) {
+  const { lat, lon } = zipToLatLon(zip);
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=soil_temperature_6cm&forecast_days=1&temperature_unit=fahrenheit&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch failed');
+  const data = await res.json();
+  // Use the reading closest to noon today
+  const temps = data.hourly?.soil_temperature_6cm;
+  if (!temps || !temps.length) throw new Error('no data');
+  // Grab the noon value (index 12 of 24-hour array)
+  const noonTemp = temps[Math.min(12, temps.length - 1)];
+  return Math.round(noonTemp);
+}
+
+function getDayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / 86400000);
+}
+
+function estimateSoilTemp(zone, date) {
+  const p = SOIL_PARAMS[zone] || SOIL_PARAMS.midwest;
+  const doy = getDayOfYear(date);
+  return Math.round(p.mean + p.amp * Math.cos(2 * Math.PI / 365 * (doy - p.peak)));
+}
+
+// What the temp means for lawn tasks
+function getSoilTempContext(tempF) {
+  if (tempF < 32)  return { label:'Frozen',                        color:'#7bb8d4', bg:'oklch(91% 0.04 230)', hint:'Soil is frozen. No lawn activity possible.', icon:'🧊' };
+  if (tempF < 40)  return { label:'Dormant',                       color:'#7bb8d4', bg:'oklch(93% 0.03 230)', hint:'Grass is dormant. Roots begin activity above 40°F.', icon:'❄️' };
+  if (tempF < 50)  return { label:'Too cold to seed',              color:'#91a89e', bg:'oklch(93% 0.02 160)', hint:'Soil warming. Pre-emergent season approaching.', icon:'🌡️' };
+  if (tempF < 55)  return { label:'Pre-emergent window opens soon',color:'#c49a28', bg:'oklch(93% 0.05 85)',  hint:'Apply pre-emergent BEFORE soil hits 55°F. Window is closing.', icon:'⚠️' };
+  if (tempF < 60)  return { label:'Pre-emergent: Apply now!',      color:'#d4700a', bg:'oklch(92% 0.06 60)',  hint:'55–60°F: Crabgrass is starting to germinate. Pre-emergent must go down immediately.', icon:'🛡️' };
+  if (tempF < 65)  return { label:'Seeding window open',           color:'#3d9e58', bg:'oklch(91% 0.06 142)', hint:'50–65°F is the ideal germination range for cool-season grasses.', icon:'🌱' };
+  if (tempF < 70)  return { label:'Good seeding conditions',       color:'#3d9e58', bg:'oklch(91% 0.06 142)', hint:'Still in the seeding window. Germination may be slightly slower above 65°F.', icon:'🌱' };
+  if (tempF < 80)  return { label:'Seeding getting risky',         color:'#c49a28', bg:'oklch(93% 0.05 85)',  hint:'Above 70°F soil temps stress new seedlings. Water heavily if seeding.', icon:'🌤️' };
+  if (tempF < 85)  return { label:'Heat stress zone',              color:'#d4600a', bg:'oklch(92% 0.06 55)',  hint:'Grass growth slows significantly. Avoid fertilizing or seeding.', icon:'☀️' };
+  return             { label:'Root damage risk',                   color:'#c93030', bg:'oklch(91% 0.07 30)',  hint:'Above 85°F soil temps can damage cool-season roots. Water deeply.', icon:'🔥' };
+}
+
+// ─── PHENOLOGICAL INDICATORS ──────────────────────────────────────────────────
+// Nature's built-in soil thermometers — bloom events correlate strongly with
+// soil temperatures. Sources: UMN Extension, PSU Extension, MSU Extension.
+const PHENO_INDICATORS = {
+  northeast: [
+    { soilTemp: 45, name:'Red Maple blooms',    icon:'🌸', action:'Pre-emergent season approaching. Order your product now.',                    source:'PSU Extension' },
+    { soilTemp: 50, name:'Forsythia blooms',    icon:'🌼', action:'Pre-emergent window is opening. Apply within 1–2 weeks.',                     source:'PSU Extension' },
+    { soilTemp: 55, name:'Forsythia drops petals', icon:'🌿', action:'Apply pre-emergent NOW — crabgrass germination begins at 55°F.',           source:'PSU Extension' },
+    { soilTemp: 60, name:'Lilac blooms',        icon:'💜', action:'Seeding window is open. Cool-season grass germinates well at 60°F.',          source:'PSU Extension' },
+    { soilTemp: 70, name:'Black locust blooms', icon:'🌳', action:'Seeding window closing. Wait for fall if possible.',                          source:'PSU Extension' },
+    { soilTemp: 50, name:'Goldenrod blooms (fall)', icon:'🌾', action:'Fall seeding window is open. Overseed and aerate now.',                   source:'PSU Extension' },
+  ],
+  midwest: [
+    { soilTemp: 45, name:'Bloodroot blooms',    icon:'🌸', action:'Pre-emergent season is 2–3 weeks away. Watch soil temps closely.',            source:'UMN Extension' },
+    { soilTemp: 50, name:'Forsythia blooms',    icon:'🌼', action:'Pre-emergent window opening. UMN says apply before soil hits 55°F.',          source:'UMN Turfgrass Science' },
+    { soilTemp: 55, name:'Lilac blooms',        icon:'💜', action:'Apply pre-emergent NOW. UMN: crabgrass germinates when soil hits 55°F at 1–2".', source:'UMN Extension' },
+    { soilTemp: 60, name:'Crabapple blooms',    icon:'🌸', action:'Seeding window open. 60–65°F is ideal for cool-season germination.',          source:'UMN Extension' },
+    { soilTemp: 65, name:'Dandelions going to seed', icon:'🌬️', action:'Peak seeding temp for Minnesota. Aerate + overseed if not done.',        source:'UMN Extension' },
+    { soilTemp: 50, name:'Goldenrod blooms (late summer)', icon:'🌾', action:'Fall seeding window open. UMN: overseed mid-Aug to late Sep.',     source:'UMN Extension' },
+  ],
+  transition: [
+    { soilTemp: 48, name:'Redbud blooms',       icon:'🌸', action:'Pre-emergent window opening in the transition zone.',                         source:'NCSU Extension' },
+    { soilTemp: 53, name:'Dogwood blooms',      icon:'🌼', action:'Apply pre-emergent now — NCSU targets soil temp before 55°F.',                source:'NCSU Extension' },
+    { soilTemp: 58, name:'Wisteria blooms',     icon:'💜', action:'Seeding window open for tall fescue. Germination good at 58–65°F.',           source:'NCSU Extension' },
+    { soilTemp: 50, name:'Goldenrod blooms (fall)', icon:'🌾', action:'Fall seeding window open. NCSU: target Aug 15–Oct 15.',                   source:'NCSU Extension' },
+  ],
+  pacific: [
+    { soilTemp: 50, name:'California poppy blooms', icon:'🌸', action:'Pre-emergent season approaching on Pacific Coast.',                       source:'UC ANR' },
+    { soilTemp: 55, name:'Freesia blooms',      icon:'🌼', action:'Apply pre-emergent now — coastal soil warming to 55°F.',                      source:'UC ANR' },
+    { soilTemp: 62, name:'Matilija poppy blooms',icon:'🤍', action:'Good seeding conditions. Fall rains approaching — ideal establishment.',     source:'UC ANR' },
+    { soilTemp: 55, name:'First fall rains arrive', icon:'🌧️', action:'Fall seeding and fertilization window open. UC ANR: overseed Sep–Oct.',  source:'UC ANR' },
+  ],
+  mountain: [
+    { soilTemp: 42, name:'Pasqueflower blooms', icon:'💜', action:'Mountain spring underway. Pre-emergent season approaching.',                  source:'CSU Extension' },
+    { soilTemp: 50, name:'Serviceberry blooms', icon:'🌸', action:'Pre-emergent window opening. CSU: apply before soil hits 55°F.',              source:'CSU Extension' },
+    { soilTemp: 55, name:'Chokecherry blooms',  icon:'🌼', action:'Apply pre-emergent now. CSU: seeding window also opening for mountain lawns.',source:'CSU Extension' },
+    { soilTemp: 60, name:'Wild iris blooms',    icon:'💙', action:'Good seeding window open. CSU: plant by Aug 10 at elevation.',               source:'CSU Extension' },
+  ],
+  warm: [
+    { soilTemp: 52, name:'Azalea blooms',       icon:'🌸', action:'Pre-emergent window opening in warm climate zone.',                           source:'UGA Extension' },
+    { soilTemp: 58, name:'Dogwood blooms',      icon:'🌼', action:'Apply pre-emergent now. Soil warming fast in warm climate.',                  source:'UGA Extension' },
+    { soilTemp: 65, name:'Wisteria blooms',     icon:'💜', action:'Seeding window open for tall fescue in warm climates.',                      source:'UGA Extension' },
+  ],
+};
+
+// Get the 1–2 phenological indicators most relevant to current soil temp
+function getCurrentPhenoIndicators(zone, tempF) {
+  const all = PHENO_INDICATORS[zone] || PHENO_INDICATORS.midwest;
+  // Find indicators within ±8°F of current temp, prefer closest
+  return all
+    .map(p => ({ ...p, diff: Math.abs(p.soilTemp - tempF) }))
+    .filter(p => p.diff <= 10)
+    .sort((a, b) => a.diff - b.diff)
+    .slice(0, 2);
+}
+
+// Which tasks are directly gated by soil temperature
+const SOIL_TEMP_TASKS = {
+  preemergent: { low: 45, high: 55, label: 'Pre-emergent window' },
+  overseed:    { low: 50, high: 65, label: 'Overseeding window' },
+  seed_new:    { low: 50, high: 65, label: 'New seed window' },
+  spring_fert: { low: 55, high: 75, label: 'Spring fertilizer window' },
+  fall_fert:   { low: 50, high: 65, label: 'Fall fertilizer window' },
+};
+
+const SoilTempWidget = ({ zone, today, tasks, zip, onTaskClick }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [liveTemp, setLiveTemp]   = useState(null);
+  const [liveStatus, setLiveStatus] = useState('loading'); // 'loading' | 'live' | 'estimated'
+
+  // Fallback model estimate
+  const modelTemp = estimateSoilTemp(zone, today);
+
+  // Fetch live temp on mount (only when simulated date matches today closely)
+  const isRealDate = Math.abs(today - new Date()) < 2 * 86400000; // within 2 days of now
+
+  useEffect(() => {
+    if (!zip || !isRealDate) { setLiveStatus('estimated'); return; }
+    setLiveStatus('loading');
+    fetchLiveSoilTemp(zip)
+      .then(t => { setLiveTemp(t); setLiveStatus('live'); })
+      .catch(() => { setLiveTemp(null); setLiveStatus('estimated'); });
+  }, [zip, zone]);
+
+  const tempF = (liveStatus === 'live' && liveTemp !== null) ? liveTemp : modelTemp;
+  const ctx = getSoilTempContext(tempF);
+  const gatedTasks = tasks.filter(t => SOIL_TEMP_TASKS[t.id]);
+  const phenoNow = getCurrentPhenoIndicators(zone, tempF);
+
+  const minT = 20, maxT = 100;
+  const pct = Math.min(100, Math.max(0, (tempF - minT) / (maxT - minT) * 100));
+
+  const scaleZones = [
+    { lo:20, hi:40,  col:'#7bb8d4' },
+    { lo:40, hi:50,  col:'#b8cfc8' },
+    { lo:50, hi:55,  col:'#e8d080' },
+    { lo:55, hi:60,  col:'#f0a040' },
+    { lo:60, hi:70,  col:'#60c070' },
+    { lo:70, hi:85,  col:'#f0c840' },
+    { lo:85, hi:100, col:'#e06030' },
+  ];
+
+  return (
+    <div style={{ margin:'0 0 12px', borderRadius:T.radius, overflow:'hidden', border:`1px solid ${T.border}`, background:ctx.bg, transition:'background 0.4s' }}>
+      {/* Collapsed header */}
+      <button onClick={() => setExpanded(e => !e)} style={{
+        width:'100%', display:'flex', alignItems:'center', gap:12, padding:'13px 16px',
+        background:'none', border:'none', cursor:'pointer', fontFamily:'Sora, sans-serif', textAlign:'left',
+      }}>
+        {/* Thermometer SVG */}
+        <div style={{ position:'relative', width:28, height:28, flexShrink:0 }}>
+          <svg viewBox="0 0 28 28" width="28" height="28">
+            <rect x="11" y="3" width="6" height="16" rx="3" fill="oklch(85% 0.02 75)" />
+            <rect x="12.5" y={3 + 16 * (1 - pct/100)} width="3" height={16 * pct/100} rx="1.5" fill={ctx.color} />
+            <circle cx="14" cy="21" r="5" fill={ctx.color} />
+            <circle cx="14" cy="21" r="3.5" fill={ctx.color} opacity="0.6" />
+          </svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:6, marginBottom:2 }}>
+            {liveStatus === 'loading'
+              ? <span style={{ fontSize:14, color:T.textMid }}>Fetching live data…</span>
+              : <span style={{ fontSize:22, fontWeight:700, color:ctx.color, lineHeight:1 }}>{tempF}°F</span>
+            }
+            <span style={{ fontSize:10, color:T.textMid }}>
+              {liveStatus === 'live' ? '📡 live · 6cm depth' : liveStatus === 'estimated' ? '〜 model estimate' : ''}
+            </span>
+          </div>
+          <div style={{ fontSize:11, fontWeight:600, color:ctx.color }}>{ctx.icon} {ctx.label}</div>
+        </div>
+        <span style={{ color:T.textSoft, fontSize:14, transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>▾</span>
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div style={{ borderTop:`1px solid ${T.border}`, padding:'14px 16px 16px' }}>
+          {/* Gradient scale */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ position:'relative', height:10, borderRadius:99, overflow:'hidden', display:'flex', marginBottom:6 }}>
+              {scaleZones.map((z,i) => (
+                <div key={i} style={{ flex: z.hi - z.lo, background: z.col }} />
+              ))}
+              <div style={{ position:'absolute', top:-3, left:`${pct}%`, transform:'translateX(-50%)', width:3, height:16, background:T.text, borderRadius:99, boxShadow:'0 0 4px rgba(0,0,0,0.3)' }} />
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between' }}>
+              <span style={{ fontSize:9, color:T.textSoft }}>20°F</span>
+              <span style={{ fontSize:9, color:T.textSoft }}>Frozen · Cold · Pre-em · Seed zone · Warm · Hot</span>
+              <span style={{ fontSize:9, color:T.textSoft }}>100°F</span>
+            </div>
+          </div>
+
+          {/* Hint */}
+          <div style={{ fontSize:12, color:T.text, lineHeight:1.6, marginBottom:14 }}>{ctx.hint}</div>
+
+          {/* Phenological indicators */}
+          {phenoNow.length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.textSoft, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:8 }}>Nature's indicators right now</div>
+              {phenoNow.map((p, i) => (
+                <div key={i} style={{
+                  display:'flex', gap:10, alignItems:'flex-start', padding:'10px 12px',
+                  background:T.bgCard, borderRadius:T.radiusSm, marginBottom:6,
+                  border:`1px solid ${T.border}`,
+                }}>
+                  <span style={{ fontSize:18, flexShrink:0 }}>{p.icon}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:2 }}>{p.name}</div>
+                    <div style={{ fontSize:11, color:T.textMid, lineHeight:1.5, marginBottom:4 }}>{p.action}</div>
+                    <div style={{ fontSize:10, color:T.textSoft }}>📚 {p.source}</div>
+                  </div>
+                  <div style={{ fontSize:10, fontWeight:600, color:T.textSoft, background:T.bgDeep, padding:'2px 7px', borderRadius:99, flexShrink:0 }}>{p.soilTemp}°F</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Gated tasks */}
+          <div style={{ fontSize:10, fontWeight:700, color:T.textSoft, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:8 }}>Soil-temp gated tasks</div>
+          {gatedTasks.map(task => {
+            const gate = SOIL_TEMP_TASKS[task.id];
+            const inRange = tempF >= gate.low && tempF <= gate.high;
+            const approaching = !inRange && tempF < gate.low && tempF >= gate.low - 8;
+            const past = tempF > gate.high;
+            return (
+              <button key={task.id} onClick={() => onTaskClick(task)} style={{
+                width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 11px',
+                background: inRange ? T.greenPale : T.bgCard,
+                border:`1px solid ${inRange ? T.greenLt : T.border}`,
+                borderRadius:T.radiusSm, marginBottom:6, cursor:'pointer',
+                fontFamily:'Sora, sans-serif', textAlign:'left', transition:'all 0.15s',
+              }}>
+                <span style={{ fontSize:16 }}>{task.icon}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color: inRange ? T.green : T.text }}>{task.name}</div>
+                  <div style={{ fontSize:10, color:T.textSoft }}>{gate.label}: {gate.low}–{gate.high}°F</div>
+                </div>
+                <div style={{
+                  fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:99,
+                  background: inRange ? T.green : approaching ? T.goldPale : past ? T.border : T.bgDeep,
+                  color: inRange ? '#fff' : approaching ? T.gold : T.textSoft,
+                }}>
+                  {inRange ? '✓ In range' : approaching ? 'Approaching' : past ? 'Too warm' : 'Not yet'}
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Source note */}
+          <div style={{ marginTop:10, fontSize:10, color:T.textSoft, lineHeight:1.5, display:'flex', gap:5 }}>
+            <span>{liveStatus === 'live' ? '📡' : '〜'}</span>
+            <span>
+              {liveStatus === 'live'
+                ? `Live reading from Open-Meteo weather model (6cm depth). Nearest grid point to ZIP ${zip}.`
+                : `Modeled estimate from historical ${EXTENSION_SOURCES[zone]?.name || 'extension'} climate averages. Use a soil thermometer at 2" depth for precision.`
+              }
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── CHECKLIST CHECK BUTTON ─────────────────────────────────────────────────
+const CheckButton = ({ checked, onToggle }) => (
+  <button
+    onClick={e => { e.stopPropagation(); onToggle(); }}
+    style={{
+      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+      border: `2px solid ${checked ? T.green : T.border}`,
+      background: checked ? T.green : 'transparent',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', transition: 'all 0.18s', fontSize: 13,
+    }}
+  >
+    {checked && <span style={{ color: '#fff', lineHeight: 1 }}>✓</span>}
+  </button>
+);
+
+// ─── HOME SCREEN (Variant A — Timeline) ──────────────────────────────────────
+const HomeScreen = ({ tasks, region, today, zone, zip, onTaskClick, checked, onToggleChecked, onClearChecked }) => {
+  const [activeTab, setActiveTab] = useState('now');
+  const checkedCount = tasks.filter(t => checked[t.id]).length;
+  const tabs = [
+    { id:'now',  label:'Right Now' },
+    { id:'season', label:'Season' },
+    { id:'year', label:'Full Year' },
+    { id:'done', label: checkedCount > 0 ? `Done (${checkedCount})` : 'Done' },
+  ];
+  const source = EXTENSION_SOURCES[zone] || { abbr:'Ext.' };
+
+  const nowTasks = tasks.filter(t => t.bestWindow.isActive || t.bestWindow.isUpcoming);
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const currentMonth = today.getMonth();
+  const seasonMonths = [(currentMonth)%12, (currentMonth+1)%12, (currentMonth+2)%12];
+
+  const allByMonth = {};
+  tasks.forEach(task => {
+    task.windows.forEach(w => {
+      const m = w.start.getMonth();
+      if (!allByMonth[m]) allByMonth[m] = [];
+      allByMonth[m].push({ task, window:w });
+    });
+  });
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', background:T.bg, fontFamily:'Sora, sans-serif', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ background:T.bgCard, borderBottom:`1px solid ${T.border}`, padding:'16px 20px 12px', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:T.text, letterSpacing:'-0.01em' }}>🌿 Easy Lawn</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <div style={{ fontSize:10, color:T.textSoft, background:T.bgDeep, padding:'3px 9px', borderRadius:99 }}>{region}</div>
+            <div style={{ fontSize:10, color:T.textSoft, background:T.bgDeep, padding:'3px 9px', borderRadius:99 }}>{source.abbr}</div>
+          </div>
+        </div>
+        <YearProgress today={today} />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${T.border}`, background:T.bgCard, flexShrink:0 }}>
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            flex:1, padding:'11px 0', border:'none', background:'none', cursor:'pointer',
+            fontSize:12, fontWeight: activeTab===tab.id ? 700 : 500,
+            color: activeTab===tab.id ? T.green : T.textMid,
+            borderBottom: activeTab===tab.id ? `2px solid ${T.green}` : '2px solid transparent',
+            transition:'all 0.15s', fontFamily:'Sora, sans-serif',
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex:1, overflowY:'auto', padding:'14px' }}>
+        {activeTab === 'now' && (
+          <>
+            <SoilTempWidget zone={zone} today={today} tasks={tasks} zip={zip} onTaskClick={onTaskClick} />
+            {nowTasks.length === 0 && (
+              <div style={{ textAlign:'center', padding:'48px 24px', color:T.textSoft }}>
+                <div style={{ fontSize:34, marginBottom:10 }}>😌</div>
+                <div style={{ fontSize:14, fontWeight:500 }}>No urgent tasks right now.</div>
+                <div style={{ fontSize:12, marginTop:6 }}>Check the Season tab for what's coming up.</div>
+              </div>
+            )}
+            {nowTasks.map(task => {
+              const isDone = !!checked[task.id];
+              return (
+                <div key={task.id} style={{
+                  display:'flex', alignItems:'center', gap:10, marginBottom:9,
+                  background: isDone ? T.bgDeep : T.bgCard,
+                  borderRadius:T.radius, border:`1px solid ${isDone ? T.border : task.bestWindow.isActive ? T.border : T.border}`,
+                  boxShadow: task.bestWindow.isActive && !isDone ? T.shadow : 'none',
+                  opacity: isDone ? 0.65 : 1, transition:'all 0.2s',
+                }}>
+                  <button onClick={() => onTaskClick(task)} style={{
+                    flex:1, display:'flex', alignItems:'center', gap:12, padding:'13px 14px',
+                    background:'none', border:'none', cursor:'pointer', textAlign:'left', fontFamily:'Sora, sans-serif',
+                  }}>
+                    <div style={{ width:40, height:40, borderRadius:13, background: isDone ? T.bgDeep : task.bestWindow.isActive ? T.greenPale : T.goldPale, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>{task.icon}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13.5, fontWeight:600, color: isDone ? T.textSoft : T.text, marginBottom:4, textDecoration: isDone ? 'line-through' : 'none' }}>{task.name}</div>
+                      <div style={{ fontSize:11, color:T.textSoft, marginBottom:5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{task.bestWindow.label}</div>
+                      {!isDone && <StatusBadge status={task.bestWindow.status} daysUntilStart={task.bestWindow.daysUntilStart} />}
+                      {isDone && <span style={{ fontSize:10, color:T.green, fontWeight:600 }}>✓ Completed this season</span>}
+                    </div>
+                  </button>
+                  <div style={{ paddingRight:14 }}>
+                    <CheckButton checked={isDone} onToggle={() => onToggleChecked(task.id)} />
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {activeTab === 'season' && (
+          <>
+            {seasonMonths.map(m => {
+              const items = allByMonth[m] || [];
+              if (!items.length) return null;
+              return (
+                <div key={m} style={{ marginBottom:18 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:T.soilMid, marginBottom:9, letterSpacing:'0.02em', display:'flex', alignItems:'center', gap:6 }}>
+                    <span>{monthNames[m]}</span>
+                    {m === today.getMonth() && <span style={{ fontSize:10, background:T.greenPale, color:T.green, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>This month</span>}
+                  </div>
+                  {items.map(({ task }) => (
+                    <button key={task.id+m} onClick={() => onTaskClick(task)} style={{
+                      width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 13px',
+                      background:T.bgCard, borderRadius:T.radiusSm, border:`1px solid ${T.border}`,
+                      marginBottom:7, cursor:'pointer', textAlign:'left', fontFamily:'Sora, sans-serif',
+                    }}>
+                      <SeasonDot season={task.season} />
+                      <span style={{ fontSize:13, fontWeight:500, color:T.text, flex:1 }}>{task.name}</span>
+                      <StatusBadge status={task.bestWindow.status} daysUntilStart={task.bestWindow.daysUntilStart} />
+                      <span style={{ color:T.textSoft, fontSize:15, marginLeft:4 }}>›</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {activeTab === 'year' && (
+          <div>
+            {Array.from({length:12}, (_,m) => {
+              const items = allByMonth[m] || [];
+              const isCurrentMonth = m === today.getMonth();
+              return (
+                <div key={m} style={{ marginBottom:isCurrentMonth ? 6 : 2 }}>
+                  <div style={{ display:'flex', alignItems:'center', padding:'6px 0' }}>
+                    <div style={{ width:32, fontSize:11, fontWeight:600, color: isCurrentMonth ? T.green : T.textSoft, flexShrink:0 }}>{monthsShort[m]}</div>
+                    <div style={{ flex:1, display:'flex', flexWrap:'wrap', gap:4 }}>
+                      {items.map(({ task }) => (
+                        <button key={task.id} onClick={() => onTaskClick(task)} style={{
+                          background: task.bestWindow.isActive ? T.greenPale : T.bgDeep,
+                          border:`1px solid ${task.bestWindow.isActive ? T.greenLt : T.border}`,
+                          borderRadius:99, padding:'2px 8px', fontSize:10, fontWeight:500,
+                          color: task.bestWindow.isActive ? T.green : T.textMid,
+                          cursor:'pointer', fontFamily:'Sora, sans-serif',
+                        }}>{task.name}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {isCurrentMonth && <div style={{ height:1.5, background:T.green, borderRadius:99, margin:'3px 0 5px' }} />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activeTab === 'done' && (
+          <div>
+            {/* Progress summary */}
+            <div style={{ background:T.bgCard, borderRadius:T.radius, padding:'16px 18px', marginBottom:14, border:`1px solid ${T.border}` }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:T.text }}>Season Progress</div>
+                <div style={{ fontSize:12, color:T.textSoft }}>{Object.values(checked).filter(Boolean).length} of {tasks.length} tasks</div>
+              </div>
+              <div style={{ height:7, background:T.border, borderRadius:99, overflow:'hidden' }}>
+                <div style={{
+                  height:'100%', borderRadius:99, background:T.green, transition:'width 0.4s ease',
+                  width:`${tasks.length ? (Object.values(checked).filter(Boolean).length / tasks.length * 100) : 0}%`,
+                }} />
+              </div>
+              {Object.values(checked).filter(Boolean).length === tasks.length && tasks.length > 0 && (
+                <div style={{ marginTop:10, fontSize:12, color:T.green, fontWeight:600, textAlign:'center' }}>
+                  🎉 All tasks completed for the season!
+                </div>
+              )}
+            </div>
+
+            {/* Completed tasks */}
+            {tasks.filter(t => checked[t.id]).length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:T.soilMid, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Completed</div>
+                {tasks.filter(t => checked[t.id]).map(task => (
+                  <div key={task.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:T.bgCard, borderRadius:T.radius, border:`1px solid ${T.border}`, marginBottom:8, opacity:0.7 }}>
+                    <div style={{ width:36, height:36, borderRadius:12, background:T.greenPale, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>{task.icon}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:T.textMid, textDecoration:'line-through', marginBottom:2 }}>{task.name}</div>
+                      <div style={{ fontSize:11, color:T.textSoft }}>{task.bestWindow.label}</div>
+                    </div>
+                    <CheckButton checked={true} onToggle={() => onToggleChecked(task.id)} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Remaining tasks */}
+            {tasks.filter(t => !checked[t.id]).length > 0 && (
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:T.soilMid, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Still To Do</div>
+                {tasks.filter(t => !checked[t.id]).map(task => (
+                  <div key={task.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:T.bgCard, borderRadius:T.radius, border:`1px solid ${T.border}`, marginBottom:8 }}>
+                    <div style={{ width:36, height:36, borderRadius:12, background: task.bestWindow.isActive ? T.greenPale : T.bgDeep, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>{task.icon}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:2 }}>{task.name}</div>
+                      <div style={{ fontSize:11, color:T.textSoft, marginBottom:4 }}>{task.bestWindow.label}</div>
+                      <StatusBadge status={task.bestWindow.status} daysUntilStart={task.bestWindow.daysUntilStart} />
+                    </div>
+                    <CheckButton checked={false} onToggle={() => onToggleChecked(task.id)} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {Object.values(checked).filter(Boolean).length > 0 && (
+              <button onClick={onClearChecked} style={{
+                width:'100%', marginTop:8, padding:'12px', borderRadius:T.radiusSm, border:`1px solid ${T.border}`,
+                background:'none', color:T.textSoft, fontSize:12, cursor:'pointer', fontFamily:'Sora, sans-serif',
+              }}>Clear all completed</button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "simulatedDate": "2026-05-02"
+}/*EDITMODE-END*/;
+
+// ─── CHECKLIST PERSISTENCE ───────────────────────────────────────────────────
+function loadChecked() {
+  try { return JSON.parse(localStorage.getItem('easylawn_checked') || '{}'); } catch { return {}; }
+}
+function saveChecked(obj) {
+  try { localStorage.setItem('easylawn_checked', JSON.stringify(obj)); } catch {}
+}
+// Reset checklist at start of each new season year
+function getSeasonKey() {
+  const d = new Date();
+  // Season year: fall tasks belong to current year, spring tasks to next
+  return `${d.getFullYear()}`;
+}
+
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [screen, setScreen] = useState('zip');
+  const [zip, setZip] = useState('');
+  const [checked, setChecked] = useState(() => loadChecked());
+
+  const toggleChecked = (taskId) => {
+    setChecked(prev => {
+      const next = { ...prev, [taskId]: !prev[taskId] };
+      saveChecked(next);
+      return next;
+    });
+  };
+  const [selectedTask, setSelectedTask] = useState(null);
+
+  const simDate = tweaks.simulatedDate ? new Date(tweaks.simulatedDate + 'T12:00:00') : new Date();
+  const zone = getClimateZone(zip);
+  const tasks = zip ? getLawnTasks(zone, simDate) : [];
+  const region = getRegionLabel(zone);
+
+  const clearChecked = () => {
+    setChecked({});
+    saveChecked({});
+  };
+  const handleZip = z => { setZip(z); setScreen('home'); };
+  const handleTaskClick = task => { setSelectedTask(task); setScreen('detail'); };
+  const handleBack = () => { setSelectedTask(null); setScreen('home'); };
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', background:'oklch(20% 0.02 60)' }}>
+      <IOSDevice width={390} height={812}>
+        <div style={{ display:'flex', flexDirection:'column', width:'100%', height:'100%', overflow:'hidden', fontFamily:'Sora, sans-serif' }}>
+          {screen === 'zip'    && <ZipScreen onSubmit={handleZip} />}
+          {screen === 'home'   && <HomeScreen tasks={tasks} region={region} today={simDate} zone={zone} zip={zip} onTaskClick={handleTaskClick} checked={checked} onToggleChecked={toggleChecked} onClearChecked={clearChecked} />}
+          {screen === 'detail' && selectedTask && <TaskDetail task={selectedTask} onBack={handleBack} today={simDate} zone={zone} />}
+        </div>
+      </IOSDevice>
+
+      <TweaksPanel>
+        <TweakSection title="Simulate Date">
+          <TweakText id="simulatedDate" label="Date (YYYY-MM-DD)" value={tweaks.simulatedDate} onChange={v => setTweak('simulatedDate', v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
